@@ -1,0 +1,51 @@
+{
+    "name": "ProELD Driver Tablet",
+    "short_name": "ProELD",
+    "description": "FMCSA-compliant Electronic Logging Device — 49 CFR Part 395",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "landscape",
+    "background_color": "#08090d",
+    "theme_color": "#f59e0b",
+    "categories": ["productivity", "transportation"],
+    "lang": "en-US",
+    "icons": [
+        {
+            "src": "/static/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/static/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/static/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "ProELD Dashboard"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Log Grid",
+            "short_name": "Logs",
+            "url": "/?tab=logs",
+            "description": "Open daily log grid"
+        },
+        {
+            "name": "DOT Inspection",
+            "short_name": "DOT",
+            "url": "/?tab=dot",
+            "description": "Enter DOT inspection mode"
+        }
+    ],
+    "related_applications": [],
+    "prefer_related_applications": false
+}

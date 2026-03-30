@@ -1,0 +1,2425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ProELD Driver Tablet</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#f59e0b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ProELD">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-deep:    #08090d;
+            --bg-panel:   #0d1117;
+            --bg-card:    #111827;
+            --bg-raised:  #161f2e;
+            --border:     #1e2d42;
+            --border-lit: #2a4060;
+            --amber:      #f59e0b;
+            --amber-dim:  #92400e;
+            --cyan:       #06b6d4;
+            --cyan-dim:   #164e63;
+            --red:        #ef4444;
+            --red-dim:    #7f1d1d;
+            --green:      #22c55e;
+            --green-dim:  #14532d;
+            --text-pri:   #e2e8f0;
+            --text-sec:   #64748b;
+            --text-dim:   #334155;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-pri);
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 500;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            /* Subtle noise texture */
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+        }
+
+        /* --- MONO FONT for numbers --- */
+        .mono { font-family: 'Share Tech Mono', monospace; }
+
+        /* --- SIDEBAR --- */
+        #sidebar {
+            width: 220px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: var(--amber);
+            text-transform: uppercase;
+        }
+        .logo-sub {
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--text-sec);
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .nav-items { padding: 16px 12px; flex: 1; }
+
+        .nav-btn {
+            width: 100%;
+            text-align: left;
+            padding: 11px 14px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-sec);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-bottom: 4px;
+        }
+        .nav-btn:hover { background: var(--bg-raised); color: var(--text-pri); }
+        .nav-btn.active {
+            background: var(--bg-raised);
+            color: var(--amber);
+            border-left: 3px solid var(--amber);
+            padding-left: 11px;
+        }
+        .nav-btn.dot-btn {
+            color: var(--red);
+            border: 1px solid var(--red-dim);
+            margin-top: 12px;
+        }
+        .nav-btn.dot-btn:hover { background: var(--red-dim); border-color: var(--red); }
+
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        /* Status pill */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .status-pill.online { background: #052e16; color: var(--green); border: 1px solid #166534; }
+        .status-pill.offline { background: var(--red-dim); color: var(--red); border: 1px solid #991b1b; }
+
+        /* Pulse dot */
+        .pulse-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* --- MAIN --- */
+        #mainContent {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- TOPBAR --- */
+        #topbar {
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .topbar-left { display: flex; align-items: center; gap: 28px; }
+
+        .topbar-stat { display: flex; flex-direction: column; gap: 2px; }
+        .topbar-label {
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-sec);
+        }
+        .topbar-value { font-size: 13px; font-weight: 600; color: var(--text-pri); }
+
+        .divider { width: 1px; height: 40px; background: var(--border); }
+
+        /* Speed display */
+        .speed-val {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 32px;
+            color: var(--green);
+            line-height: 1;
+            transition: color 0.3s;
+        }
+        .speed-val.warning { color: var(--amber); }
+        .speed-val.danger  { color: var(--red); }
+
+        /* Duty status select */
+        #dutyStatus {
+            background: var(--bg-raised);
+            color: var(--text-pri);
+            border: 1px solid var(--border-lit);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            outline: none;
+            cursor: pointer;
+            appearance: none;
+            min-width: 160px;
+        }
+        #dutyStatus:focus { border-color: var(--amber); }
+        #dutyStatus:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Status badge colors */
+        .status-driving  { color: var(--green); }
+        .status-onduty   { color: var(--amber); }
+        .status-offduty  { color: var(--text-sec); }
+        .status-sleeper  { color: var(--cyan); }
+
+        /* --- SCROLLABLE CONTENT --- */
+        #pageContent {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        #pageContent::-webkit-scrollbar { width: 4px; }
+        #pageContent::-webkit-scrollbar-track { background: var(--bg-panel); }
+        #pageContent::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 4px; }
+
+        /* --- CARDS --- */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: var(--border-lit); }
+
+        .card-title {
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--text-sec);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title-accent { color: var(--amber); }
+
+        /* --- HOS CLOCKS --- */
+        .hos-clock-row {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .hos-item { display: flex; flex-direction: column; gap: 6px; }
+        .hos-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .hos-name { font-size: 12px; letter-spacing: 1px; color: var(--text-sec); text-transform: uppercase; }
+        .hos-time { font-family: 'Share Tech Mono', monospace; font-size: 18px; color: var(--text-pri); }
+        .hos-time.warn { color: var(--amber); }
+        .hos-time.crit { color: var(--red); animation: blink 1s infinite; }
+
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+        .progress-track {
+            height: 5px;
+            background: var(--bg-raised);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 100px;
+            transition: width 0.5s ease, background-color 0.5s ease;
+        }
+        .prog-drive  { background: var(--green); }
+        .prog-duty   { background: var(--cyan); }
+        .prog-weekly { background: var(--amber); }
+
+        /* --- WEEKLY SUMMARY --- */
+        .weekly-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .day-block {
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 4px;
+            text-align: center;
+            font-size: 11px;
+        }
+        .day-block .day-label { color: var(--text-sec); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+        .day-block .day-hrs { font-family: 'Share Tech Mono', monospace; font-size: 16px; }
+
+        /* --- TRIP FORM --- */
+        .form-input {
+            width: 100%;
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: var(--text-pri);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus { border-color: var(--amber); }
+        .form-input::placeholder { color: var(--text-dim); }
+
+        .btn-primary {
+            width: 100%;
+            background: var(--amber);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            padding: 11px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-primary:hover { background: #fbbf24; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(245,158,11,0.3); }
+        .btn-primary:active { transform: translateY(0); }
+
+        /* --- MAP --- */
+        #map {
+            height: 280px;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            filter: saturate(0.7) brightness(0.8);
+        }
+
+        /* --- LOG GRID --- */
+        #eldCanvas { display: block; }
+
+        .log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .log-table th {
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-sec);
+            border-bottom: 1px solid var(--border);
+        }
+        .log-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+        .log-table tr:last-child td { border-bottom: none; }
+        .log-table tr:hover td { background: var(--bg-raised); }
+
+        /* --- DVIR --- */
+        .dvir-check {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .dvir-check:hover { border-color: var(--border-lit); }
+        .dvir-check input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--green); cursor: pointer; }
+        .dvir-check.checked { border-color: var(--green-dim); background: #052e1640; }
+        .dvir-label { font-size: 14px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+        .dvir-sub { font-size: 11px; color: var(--text-sec); margin-top: 2px; }
+
+        .btn-success {
+            background: var(--green);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            padding: 13px 24px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.15s ease;
+        }
+        .btn-success:hover { background: #4ade80; box-shadow: 0 4px 20px rgba(34,197,94,0.3); }
+
+        /* --- DOT OVERLAY --- */
+        #dotOverlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(8,9,13,0.97);
+            backdrop-filter: blur(20px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        #dotOverlay.active { display: flex; }
+
+        .dot-modal {
+            background: var(--bg-card);
+            border: 2px solid var(--red);
+            border-radius: 16px;
+            padding: 48px;
+            text-align: center;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 0 80px rgba(239,68,68,0.2), 0 0 0 1px rgba(239,68,68,0.1);
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .dot-icon-wrap {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: var(--red-dim);
+            border: 2px solid var(--red);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 24px;
+        }
+
+        .dot-title {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--red);
+            margin-bottom: 8px;
+        }
+        .dot-sub { font-size: 13px; color: var(--text-sec); line-height: 1.7; margin-bottom: 32px; }
+
+        .dot-input-row { display: flex; gap: 8px; }
+        .dot-pin-input {
+            flex: 1;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-lit);
+            border-radius: 8px;
+            padding: 14px;
+            color: var(--text-pri);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 24px;
+            text-align: center;
+            letter-spacing: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .dot-pin-input:focus { border-color: var(--red); }
+
+        .btn-unlock {
+            background: var(--red);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 20px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-unlock:hover { background: #f87171; }
+
+        /* --- DOT BODY BORDER --- */
+        body.dot-active { outline: 8px solid var(--red); outline-offset: -8px; }
+
+        /* Red stripe animation at top */
+        body.dot-active::before {
+            content: 'DOT INSPECTION MODE — EDITING LOCKED';
+            display: block;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: var(--red);
+            color: white;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            padding: 5px;
+            z-index: 200;
+        }
+
+        /* --- ALERT BADGE --- */
+        .alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #450a0a;
+            border: 1px solid var(--red);
+            color: var(--red);
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .alert-badge.warn {
+            background: #451a03;
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+
+        /* --- TOPBAR FLASH --- */
+        @keyframes flash-ring {
+            0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(245,158,11,0); }
+            100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+        }
+        .flash { animation: flash-ring 0.8s ease; }
+
+        /* --- TAB HIDDEN --- */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Tab animation */
+        .tab-content.active { animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- LOADING SPINNER --- */
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--amber);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Print styles */
+        @media print {
+            #sidebar, #topbar { display: none !important; }
+            body { background: white; color: black; }
+            .card { border: 1px solid #ccc; }
+        }
+
+        /* Scrollbar for log table */
+
+        /* Auth tabs */
+        .auth-tab {
+            background: transparent;
+            color: var(--text-sec);
+            transition: all 0.15s;
+        }
+        .auth-tab-active {
+            background: var(--bg-card) !important;
+            color: var(--amber) !important;
+        }
+
+        /* ── Error boundary ─────────────────────────────────── */
+        #appError {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--bg-deep);
+            z-index: 9000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            padding: 24px;
+            text-align: center;
+        }
+        #appError.visible { display: flex; }
+        .error-icon { font-size: 48px; }
+        .error-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--red);
+        }
+        .error-msg {
+            font-size: 13px;
+            color: var(--text-sec);
+            max-width: 480px;
+            line-height: 1.6;
+        }
+        .error-detail {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            color: var(--text-dim);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px 16px;
+            max-width: 600px;
+            width: 100%;
+            text-align: left;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-scroll { overflow-x: auto; }
+        .log-scroll::-webkit-scrollbar { height: 4px; }
+        .log-scroll::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 4px; }
+
+        /* ============================================================
+           RESPONSIVE LAYOUT
+           Breakpoints:
+             xl  > 1280px  — full 3-col dashboard, full sidebar
+             lg  > 1024px  — 2-col dashboard, full sidebar
+             md  > 768px   — 1-col dashboard, collapsed sidebar (icons)
+             sm  ≤ 768px   — mobile: bottom nav, stacked layout
+             xs  ≤ 480px   — phone: ultra-compact topbar
+        ============================================================ */
+
+        /* ── Sidebar responsive ─────────────────────────────── */
+        @media (max-width: 1024px) {
+            #sidebar {
+                width: 64px;
+                overflow: hidden;
+            }
+            .logo-text, .logo-sub, .nav-btn span,
+            #sidebarDriverName, #sidebarVehicleId,
+            #clockDisplay, #installSidebarBtn, #connectionStatus,
+            .sidebar-footer > div { display: none !important; }
+            .logo { padding: 16px 8px; text-align: center; }
+            .nav-items { padding: 12px 8px; }
+            .nav-btn {
+                justify-content: center;
+                padding: 12px 0;
+                font-size: 0;
+                border-left: none !important;
+            }
+            .nav-btn i { width: 20px !important; height: 20px !important; }
+            .nav-btn.active { border-left: 3px solid var(--amber) !important; padding-left: 0 !important; }
+            .sidebar-footer { padding: 8px; }
+            .sidebar-footer button { display: none !important; }
+        }
+
+        /* ── Mobile: hide sidebar entirely, show bottom nav ─── */
+        @media (max-width: 768px) {
+            #sidebar { display: none; }
+            #appShell { flex-direction: column; }
+            #mainContent { height: calc(100vh - 56px); }
+
+            /* Bottom navigation bar */
+            #mobileNav {
+                display: flex !important;
+                position: fixed;
+                bottom: 0; left: 0; right: 0;
+                background: var(--bg-panel);
+                border-top: 1px solid var(--border);
+                z-index: 500;
+                height: 56px;
+            }
+            #pageContent { padding-bottom: 72px; }
+        }
+
+        @media (min-width: 769px) {
+            #mobileNav { display: none !important; }
+        }
+
+        /* ── Topbar responsive ──────────────────────────────── */
+        @media (max-width: 1024px) {
+            #topbar { padding: 10px 16px; }
+            .topbar-left { gap: 16px; }
+            .speed-val { font-size: 24px; }
+            #topbarDrive, #topbarDuty { font-size: 16px; }
+        }
+
+        @media (max-width: 768px) {
+            #topbar {
+                padding: 8px 12px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .topbar-left { gap: 10px; flex-wrap: nowrap; overflow-x: auto; }
+            .topbar-left .divider { display: none; }
+            /* Hide window remaining on small screens */
+            .topbar-hide-sm { display: none !important; }
+        }
+
+        @media (max-width: 480px) {
+            .speed-val { font-size: 20px; }
+            #topbarDrive { font-size: 14px; }
+            .topbar-label { font-size: 9px; }
+            #dutyStatus { min-width: 120px; font-size: 12px; padding: 6px 8px; }
+        }
+
+        /* ── Dashboard grid responsive ──────────────────────── */
+        /* 3-col → 2-col at lg */
+        @media (max-width: 1280px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr 1fr !important;
+            }
+            .dashboard-grid .grid-col-1 { grid-column: 1 / 2 !important; }
+            .dashboard-grid .grid-col-2 { grid-column: 2 / 3 !important; }
+            .dashboard-grid .grid-col-3 { grid-column: 1 / 3 !important; }
+        }
+
+        /* 2-col → 1-col at md */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr !important;
+            }
+            .dashboard-grid .grid-col-1,
+            .dashboard-grid .grid-col-2,
+            .dashboard-grid .grid-col-3 { grid-column: 1 / 2 !important; }
+        }
+
+        /* ── Weekly grid responsive ─────────────────────────── */
+        @media (max-width: 480px) {
+            .weekly-grid {
+                grid-template-columns: repeat(4, 1fr) !important;
+            }
+        }
+
+        /* ── DVIR grid responsive ───────────────────────────── */
+        @media (max-width: 640px) {
+            .dvir-grid { grid-template-columns: 1fr !important; }
+            .dvir-grid .dvir-checklist { grid-column: 1 / 2 !important; }
+            .dvir-checklist-inner { grid-template-columns: 1fr !important; }
+        }
+
+        /* ── Map height responsive ──────────────────────────── */
+        @media (max-width: 768px) {
+            #map { height: 200px !important; }
+        }
+
+        /* ── Cards ──────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            #pageContent { padding: 12px; }
+            .card { padding: 14px; }
+        }
+
+        /* ── Auth screen ────────────────────────────────────── */
+        @media (max-width: 480px) {
+            #authScreen > div:last-child {
+                width: 100% !important;
+                border-radius: 0 !important;
+                padding: 20px !important;
+                border-left: none !important;
+                border-right: none !important;
+            }
+        }
+
+        /* ── HOS clocks compact ─────────────────────────────── */
+        @media (max-width: 480px) {
+            .hos-time { font-size: 15px !important; }
+            .hos-name { font-size: 10px !important; }
+        }
+
+        /* ── Install banner responsive ──────────────────────── */
+        @media (max-width: 480px) {
+            #installBanner { flex-direction: column; gap: 8px; padding: 12px; }
+            #installBanner > div:last-child { width: 100%; justify-content: flex-end; }
+        }
+
+        /* ── DOT modal responsive ───────────────────────────── */
+        @media (max-width: 480px) {
+            .dot-modal { padding: 24px 16px; margin: 0 12px; }
+            .dot-title { font-size: 20px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- PWA Install Banner -->
+<div id="installBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+    background:var(--bg-card);border-top:1px solid var(--border-lit);padding:14px 20px;
+    align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <img src="/static/icons/icon-192.png" style="width:40px;height:40px;border-radius:10px;">
+        <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text-pri);letter-spacing:1px;">Install ProELD</div>
+            <div style="font-size:11px;color:var(--text-sec);">Add to home screen for offline use &amp; faster access</div>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <button onclick="dismissInstall()" style="padding:8px 16px;background:transparent;border:1px solid var(--border);
+            color:var(--text-sec);border-radius:6px;font-family:Rajdhani,sans-serif;font-size:12px;
+            font-weight:700;letter-spacing:1px;cursor:pointer;">Later</button>
+        <button onclick="doInstall()" style="padding:8px 18px;background:var(--amber);border:none;
+            color:#000;border-radius:6px;font-family:Rajdhani,sans-serif;font-size:12px;
+            font-weight:700;letter-spacing:1px;cursor:pointer;">Install</button>
+    </div>
+</div>
+
+<!-- App-level error boundary -->
+<div id="appError">
+    <div class="error-icon">⚠</div>
+    <div class="error-title">Something went wrong</div>
+    <p class="error-msg">
+        ProELD encountered an unexpected error. Your HOS data is safe — it's stored on the server.<br>
+        Try refreshing the page. If the problem persists, check your connection.
+    </p>
+    <pre class="error-detail" id="appErrorDetail"></pre>
+    <div style="display:flex;gap:10px;">
+        <button onclick="window.location.reload()"
+            style="padding:10px 24px;background:var(--amber);border:none;color:#000;
+            border-radius:6px;font-family:Rajdhani,sans-serif;font-weight:700;
+            font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">
+            Reload App
+        </button>
+        <button onclick="document.getElementById('appError').classList.remove('visible')"
+            style="padding:10px 24px;background:transparent;border:1px solid var(--border);
+            color:var(--text-sec);border-radius:6px;font-family:Rajdhani,sans-serif;
+            font-weight:700;font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">
+            Dismiss
+        </button>
+    </div>
+</div>
+
+
+<!-- Mobile Bottom Navigation -->
+<div id="mobileNav" style="display:none;">
+    <button onclick="switchTab('dashboard')" id="mob-dashboard"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:3px;background:transparent;border:none;color:var(--text-sec);cursor:pointer;
+        font-family:Rajdhani,sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;
+        text-transform:uppercase;padding:8px 0;transition:color 0.15s;">
+        <i data-lucide="layout-dashboard" style="width:18px;height:18px;"></i>
+        Dashboard
+    </button>
+    <button onclick="switchTab('logs')" id="mob-logs"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:3px;background:transparent;border:none;color:var(--text-sec);cursor:pointer;
+        font-family:Rajdhani,sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;
+        text-transform:uppercase;padding:8px 0;transition:color 0.15s;">
+        <i data-lucide="file-spreadsheet" style="width:18px;height:18px;"></i>
+        Logs
+    </button>
+    <button onclick="switchTab('dvir')" id="mob-dvir"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:3px;background:transparent;border:none;color:var(--text-sec);cursor:pointer;
+        font-family:Rajdhani,sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;
+        text-transform:uppercase;padding:8px 0;transition:color 0.15s;">
+        <i data-lucide="clipboard-check" style="width:18px;height:18px;"></i>
+        DVIR
+    </button>
+    <button onclick="enableDotMode()" 
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:3px;background:transparent;border:none;color:var(--red);cursor:pointer;
+        font-family:Rajdhani,sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;
+        text-transform:uppercase;padding:8px 0;">
+        <i data-lucide="shield-alert" style="width:18px;height:18px;"></i>
+        DOT
+    </button>
+    <button onclick="triggerInstallPrompt()"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:3px;background:transparent;border:none;color:var(--amber);cursor:pointer;
+        font-family:Rajdhani,sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;
+        text-transform:uppercase;padding:8px 0;">
+        <i data-lucide="download" style="width:18px;height:18px;"></i>
+        Install
+    </button>
+</div>
+
+
+<!-- ============================================================
+     AUTH SCREEN (shown when logged out)
+============================================================ -->
+<div id="authScreen" style="display:none;position:fixed;inset:0;background:var(--bg-deep);z-index:1000;align-items:center;justify-content:center;flex-direction:column;">
+    <div style="text-align:center;margin-bottom:28px;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px;">
+            <i data-lucide="truck" style="color:var(--amber);width:28px;height:28px;"></i>
+            <span style="font-size:28px;font-weight:700;letter-spacing:5px;color:var(--amber);text-transform:uppercase;">ProELD</span>
+        </div>
+        <div style="font-size:11px;letter-spacing:3px;color:var(--text-sec);text-transform:uppercase;">FMCSA Compliant ELD · 49 CFR Part 395</div>
+    </div>
+
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:32px;width:380px;max-width:95vw;">
+        <!-- Tabs -->
+        <div style="display:flex;gap:4px;margin-bottom:24px;background:var(--bg-raised);padding:4px;border-radius:8px;">
+            <button id="authTabLogin" onclick="toggleAuthTab('login')"
+                class="auth-tab auth-tab-active"
+                style="flex:1;padding:8px;border:none;border-radius:6px;font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">
+                Sign In
+            </button>
+            <button id="authTabRegister" onclick="toggleAuthTab('register')"
+                class="auth-tab"
+                style="flex:1;padding:8px;border:none;border-radius:6px;font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">
+                Register
+            </button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" onsubmit="handleLogin(event)" style="display:block;">
+            <div style="margin-bottom:14px;">
+                <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:6px;">Email</div>
+                <input id="loginEmail" type="email" required placeholder="driver@carrier.com" class="form-input">
+            </div>
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:6px;">Password</div>
+                <input id="loginPassword" type="password" required placeholder="••••••••" class="form-input">
+            </div>
+            <div id="loginError" style="color:var(--red);font-size:12px;margin-bottom:12px;min-height:16px;"></div>
+            <button id="loginBtn" type="submit" class="btn-primary">Sign In</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm" onsubmit="handleRegister(event)" style="display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div style="grid-column:1/3;">
+                    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:4px;">Full Name</div>
+                    <input id="regName" type="text" required placeholder="John Martinez" class="form-input">
+                </div>
+                <div style="grid-column:1/3;">
+                    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:4px;">Email</div>
+                    <input id="regEmail" type="email" required placeholder="driver@carrier.com" class="form-input">
+                </div>
+                <div style="grid-column:1/3;">
+                    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:4px;">Password (min 8 chars)</div>
+                    <input id="regPassword" type="password" required minlength="8" placeholder="••••••••" class="form-input">
+                </div>
+                <div>
+                    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:4px;">CDL No.</div>
+                    <input id="regLicense" type="text" required placeholder="CDL12345" class="form-input">
+                </div>
+                <div>
+                    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:4px;">Vehicle ID</div>
+                    <input id="regVehicle" type="text" required placeholder="TRK-4782" class="form-input">
+                </div>
+                <div style="grid-column:1/3;">
+                    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-sec);margin-bottom:4px;">HOS Cycle</div>
+                    <select id="regCycle" class="form-input" style="appearance:auto;">
+                        <option value="8">70-hr / 8-day</option>
+                        <option value="7">60-hr / 7-day</option>
+                    </select>
+                </div>
+            </div>
+            <div id="regError" style="color:var(--red);font-size:12px;margin-bottom:12px;min-height:16px;"></div>
+            <button id="registerBtn" type="submit" class="btn-primary">Create Account</button>
+        </form>
+    </div>
+</div>
+
+<!-- APP SHELL (shown when logged in) -->
+<div id="appShell" style="display:none;width:100%;height:100vh;overflow:hidden;">
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+    <div>
+        <div class="logo">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                <i data-lucide="truck" style="color:var(--amber);width:20px;height:20px;"></i>
+                <span class="logo-text">ProELD</span>
+            </div>
+            <div class="logo-sub">FMCSA Compliant ELD</div>
+        </div>
+
+        <div class="nav-items">
+            <button class="nav-btn active" id="nav-dashboard" onclick="switchTab('dashboard')">
+                <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i> Dashboard
+            </button>
+            <button class="nav-btn" id="nav-logs" onclick="switchTab('logs')">
+                <i data-lucide="file-spreadsheet" style="width:16px;height:16px;"></i> Log Grid
+            </button>
+            <button class="nav-btn" id="nav-dvir" onclick="switchTab('dvir')">
+                <i data-lucide="clipboard-check" style="width:16px;height:16px;"></i> eDVIR
+            </button>
+            <button class="nav-btn dot-btn" onclick="enableDotMode()">
+                <i data-lucide="shield-alert" style="width:16px;height:16px;"></i> DOT Inspection
+            </button>
+        </div>
+    </div>
+
+    <div class="sidebar-footer">
+        <div id="connectionStatus" class="status-pill online">
+            <span class="pulse-dot"></span> Online
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text-sec);">
+            <div>Driver: <span id="sidebarDriverName" style="color:var(--text-pri);">—</span></div>
+            <div>Vehicle: <span id="sidebarVehicleId" style="color:var(--text-pri);">—</span></div>
+            <div style="margin-top:4px;" id="clockDisplay" class="mono"></div>
+        </div>
+        <button onclick="triggerInstallPrompt()" id="installSidebarBtn"
+            style="margin-top:10px;width:100%;background:transparent;border:1px solid var(--amber-dim);color:var(--amber);padding:6px;border-radius:6px;font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;"
+            onmouseover="this.style.background='var(--bg-raised)'" onmouseout="this.style.background='transparent'">
+            &#8659; Install App
+        </button>
+        <button onclick="AUTH.logout()"
+            style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--border);color:var(--text-sec);padding:6px;border-radius:6px;font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;"
+            onmouseover="this.style.background='var(--bg-raised)'" onmouseout="this.style.background='transparent'">
+            Sign Out
+        </button>
+    </div>
+</nav>
+
+<!-- MAIN -->
+<div id="mainContent" style="position:relative;">
+
+    <!-- TOP BAR -->
+    <div id="topbar">
+        <div class="topbar-left">
+            <!-- Duty Status -->
+            <div class="topbar-stat">
+                <div class="topbar-label">Duty Status</div>
+                <select id="dutyStatus" onchange="manualStatusChange(this.value)">
+                    <option value="Off-Duty">Off-Duty</option>
+                    <option value="Sleeper">Sleeper Berth</option>
+                    <option value="Driving">Driving</option>
+                    <option value="On-Duty">On-Duty (Not Driving)</option>
+                </select>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Speed -->
+            <div class="topbar-stat">
+                <div class="topbar-label">Vehicle Speed</div>
+                <div style="display:flex;align-items:baseline;gap:6px;">
+                    <span id="speedometer" class="speed-val mono">0</span>
+                    <span style="font-size:12px;color:var(--text-sec);">MPH</span>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- 11hr countdown inline -->
+            <div class="topbar-stat">
+                <div class="topbar-label">Drive Remaining</div>
+                <span id="topbarDrive" class="mono" style="font-size:20px;color:var(--green);">11:00</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- 14hr countdown inline -->
+            <div class="topbar-stat topbar-hide-sm">
+                <div class="topbar-label">Window Remaining</div>
+                <span id="topbarDuty" class="mono" style="font-size:20px;color:var(--cyan);">14:00</span>
+            </div>
+        </div>
+
+        <!-- Right: GPS location + alerts -->
+        <div style="display:flex;align-items:center;gap:16px;">
+            <div id="hosAlert" style="display:none;" class="alert-badge warn">
+                <i data-lucide="triangle-alert" style="width:14px;height:14px;"></i>
+                <span id="hosAlertText">Break Required Soon</span>
+            </div>
+            <div class="topbar-stat" style="text-align:right;">
+                <div class="topbar-label">Current Location</div>
+                <div id="geoLoc" style="font-size:13px;color:var(--cyan);font-style:italic;">Detecting GPS...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE CONTENT -->
+    <div id="pageContent">
+
+        <!-- ========== DASHBOARD ========== -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="dashboard-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+
+                <!-- HOS Clocks -->
+                <div class="card grid-col-1" style="grid-column:1/2;">
+                    <div class="card-title">
+                        <i data-lucide="timer" style="width:14px;height:14px;color:var(--amber);"></i>
+                        <span class="card-title-accent">HOS</span> Clocks
+                    </div>
+                    <div class="hos-clock-row">
+                        <div class="hos-item">
+                            <div class="hos-header">
+                                <span class="hos-name">11-Hr Drive</span>
+                                <span id="driveClockText" class="hos-time">11:00</span>
+                            </div>
+                            <div class="progress-track"><div id="driveBar" class="progress-fill prog-drive" style="width:100%"></div></div>
+                        </div>
+                        <div class="hos-item">
+                            <div class="hos-header">
+                                <span class="hos-name">14-Hr Window</span>
+                                <span id="dutyClockText" class="hos-time">14:00</span>
+                            </div>
+                            <div class="progress-track"><div id="dutyBar" class="progress-fill prog-duty" style="width:100%"></div></div>
+                        </div>
+                        <div class="hos-item">
+                            <div class="hos-header">
+                                <span class="hos-name">8-Hr Break</span>
+                                <span id="breakClockText" class="hos-time">8:00</span>
+                            </div>
+                            <div class="progress-track"><div id="breakBar" class="progress-fill" style="width:100%;background:var(--amber);"></div></div>
+                        </div>
+                        <div class="hos-item">
+                            <div class="hos-header">
+                                <span class="hos-name">70-Hr Weekly</span>
+                                <span id="weeklyClockText" class="hos-time">70:00</span>
+                            </div>
+                            <div class="progress-track"><div id="weeklyBar" class="progress-fill prog-weekly" style="width:100%"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trip Planner -->
+                <div class="card grid-col-2" style="grid-column:2/3;">
+                    <div class="card-title">
+                        <i data-lucide="map-pin" style="width:14px;height:14px;color:var(--amber);"></i>
+                        <span class="card-title-accent">Trip</span> Planner
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <input id="pickup" type="text" placeholder="Pickup city / state" class="form-input">
+                        <input id="dropoff" type="text" placeholder="Dropoff city / state" class="form-input">
+                        <div style="display:flex;gap:8px;">
+                            <input id="cycleUsed" type="number" placeholder="Cycle hrs used" class="form-input" style="width:auto;flex:1;" value="10" min="0" max="70">
+                        </div>
+                        <button onclick="runSimulation()" id="simBtn" class="btn-primary">
+                            Simulate HOS Route
+                        </button>
+                        <div id="simResult" style="display:none;font-size:12px;color:var(--text-sec);padding:8px;background:var(--bg-raised);border-radius:6px;border:1px solid var(--border);"></div>
+                    </div>
+                </div>
+
+                <!-- Status Card -->
+                <div class="card grid-col-3" style="grid-column:3/4;">
+                    <div class="card-title">
+                        <i data-lucide="activity" style="width:14px;height:14px;color:var(--amber);"></i>
+                        <span class="card-title-accent">Current</span> Status
+                    </div>
+                    <div style="text-align:center;padding:16px 0;">
+                        <div id="statusBadgeLarge" style="font-size:28px;font-weight:700;letter-spacing:3px;margin-bottom:6px;text-transform:uppercase;color:var(--text-sec);">Off-Duty</div>
+                        <div id="statusSince" style="font-size:11px;color:var(--text-sec);letter-spacing:1px;">Since 00:00</div>
+                    </div>
+                    <!-- 34hr restart indicator -->
+                    <div style="margin-top:12px;padding:12px;background:var(--bg-raised);border-radius:8px;border:1px solid var(--border);">
+                        <div style="font-size:10px;letter-spacing:2px;color:var(--text-sec);text-transform:uppercase;margin-bottom:6px;">34-Hr Restart</div>
+                        <div id="restartStatus" style="font-size:13px;color:var(--text-sec);">Not eligible yet</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weekly Summary Row -->
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-title">
+                    <i data-lucide="calendar-days" style="width:14px;height:14px;color:var(--amber);"></i>
+                    <span class="card-title-accent">7-Day</span> Rolling Summary
+                </div>
+                <div class="weekly-grid" id="weeklyGrid"></div>
+            </div>
+
+            <!-- Map -->
+            <div id="map"></div>
+        </div>
+
+        <!-- ========== LOGS ========== -->
+        <div id="tab-logs" class="tab-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div>
+                    <h2 style="font-size:20px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-pri);">Daily Log Grid</h2>
+                    <p style="font-size:12px;color:var(--text-sec);margin-top:2px;letter-spacing:1px;">FMCSA Record of Duty Status · 49 CFR Part 395</p>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="showCertifyModal(new Date().toISOString().slice(0,10), 'Today')"
+                        style="display:flex;align-items:center;gap:8px;background:var(--green-dim);
+                        border:1px solid var(--green);color:var(--green);padding:9px 16px;border-radius:6px;
+                        font-family:Rajdhani,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;
+                        text-transform:uppercase;cursor:pointer;transition:all 0.15s;">
+                        <i data-lucide="shield-check" style="width:14px;height:14px;"></i> Certify Today
+                    </button>
+                    <button onclick="window.print()" id="exportBtn"
+                        style="display:flex;align-items:center;gap:8px;background:var(--bg-raised);
+                        border:1px solid var(--border);color:var(--text-pri);padding:9px 16px;border-radius:6px;
+                        font-family:Rajdhani,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;
+                        text-transform:uppercase;cursor:pointer;transition:all 0.15s;">
+                        <i data-lucide="printer" style="width:14px;height:14px;"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Graph -->
+            <div class="card" style="margin-bottom:16px;overflow-x:auto;background:#fff;">
+                <canvas id="eldCanvas" height="260" style="width:100%;display:block;"></canvas>
+            </div>
+
+            <!-- Event Table -->
+            <div class="card">
+                <div class="card-title">
+                    <i data-lucide="list" style="width:14px;height:14px;color:var(--amber);"></i>
+                    <span class="card-title-accent">Event</span> Log
+                </div>
+                <div class="log-scroll">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                                <th>Location / Note</th>
+                                <th>Verified</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== DVIR ========== -->
+        <div id="tab-dvir" class="tab-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <h2 style="font-size:20px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">Electronic DVIR</h2>
+                    <p style="font-size:12px;color:var(--text-sec);letter-spacing:1px;margin-top:2px;">Driver Vehicle Inspection Report</p>
+                </div>
+                <div id="dvirStatus" style="font-size:12px;color:var(--text-sec);letter-spacing:1px;"></div>
+            </div>
+
+            <div class="dvir-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:800px;">
+                <!-- Inspection checklist -->
+                <div class="card dvir-checklist" style="grid-column:1/3;">
+                    <div class="card-title">
+                        <i data-lucide="check-square" style="width:14px;height:14px;color:var(--amber);"></i>
+                        <span class="card-title-accent">Vehicle</span> Inspection Checklist
+                    </div>
+                    <div class="dvir-checklist-inner" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="dvirChecklist">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Defects -->
+                <div class="card">
+                    <div class="card-title">
+                        <i data-lucide="alert-triangle" style="width:14px;height:14px;color:var(--amber);"></i>
+                        Defects / Remarks
+                    </div>
+                    <textarea id="dvirRemarks" placeholder="Note any defects observed..." class="form-input" style="height:100px;resize:none;"></textarea>
+                </div>
+
+                <!-- Signature -->
+                <div class="card">
+                    <div class="card-title">
+                        <i data-lucide="pen-line" style="width:14px;height:14px;color:var(--amber);"></i>
+                        Electronic Signature
+                    </div>
+                    <input type="text" id="driverSig" placeholder="Type full name to sign" class="form-input" style="margin-bottom:12px;">
+                    <div style="font-size:11px;color:var(--text-sec);letter-spacing:1px;">
+                        By signing, I certify that this vehicle has been inspected and is in compliance with applicable regulations.
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div style="grid-column:1/3;">
+                    <button onclick="submitDvir()" class="btn-success">
+                        <span style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                            <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
+                            Submit Post-Trip Inspection
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /pageContent -->
+
+    <!-- DOT OVERLAY -->
+    <div id="dotOverlay">
+        <div class="dot-modal">
+            <div class="dot-icon-wrap">
+                <i data-lucide="shield-alert" style="width:36px;height:36px;color:var(--red);"></i>
+            </div>
+            <div class="dot-title">DOT Inspection Mode</div>
+            <p class="dot-sub">
+                Safety Officer: The Log Grid tab is now accessible for compliance review.<br>
+                All driver editing features have been disabled.<br>
+                <strong style="color:var(--text-pri);">Enter your DOT PIN to unlock.</strong>
+            </p>
+            <div id="dotPinError" style="color:var(--red);font-size:12px;margin-bottom:10px;min-height:16px;"></div>
+            <div class="dot-input-row">
+                <input type="password" id="dotPin" placeholder="••••" maxlength="8" class="dot-pin-input"
+                    onkeyup="if(this.value.length>=4 && event.key==='Enter') exitDotMode()">
+                <button id="dotUnlockBtn" onclick="exitDotMode()" class="btn-unlock">Unlock</button>
+            </div>
+        </div>
+    </div><!-- /mainContent -->
+</div><!-- /appShell -->
+
+<script>
+// ============================================================
+//  GLOBAL ERROR BOUNDARY
+// ============================================================
+function showAppError(err) {
+    const el = document.getElementById('appError');
+    const detail = document.getElementById('appErrorDetail');
+    if (!el) return;
+    if (detail) {
+        detail.textContent = err instanceof Error
+            ? err.stack || err.message
+            : String(err);
+    }
+    el.classList.add('visible');
+    console.error('ProELD error boundary caught:', err);
+}
+
+// Catch unhandled JS errors
+window.addEventListener('error', e => {
+    // Ignore cross-origin script errors (CDN 404s etc.)
+    if (e.message === 'Script error.' && !e.filename) return;
+    showAppError(e.error || e.message);
+});
+
+// Catch unhandled promise rejections
+window.addEventListener('unhandledrejection', e => {
+    // Don't show error boundary for network failures (handled gracefully)
+    if (e.reason instanceof TypeError &&
+        e.reason.message.includes('fetch')) return;
+    showAppError(e.reason);
+    e.preventDefault();
+});
+
+// ============================================================
+//  API  — all backend calls go through here
+// ============================================================
+const API = {
+    base: '',   // same origin
+
+    _token() { return localStorage.getItem('access_token'); },
+
+    headers(extra = {}) {
+        const h = { 'Content-Type': 'application/json', ...extra };
+        const t = this._token();
+        if (t) h['Authorization'] = `Bearer ${t}`;
+        return h;
+    },
+
+    async post(path, body, form = false) {
+        const opts = {
+            method: 'POST',
+            headers: form
+                ? (this._token() ? { Authorization: `Bearer ${this._token()}` } : {})
+                : this.headers(),
+            body: form
+                ? new URLSearchParams(body)
+                : JSON.stringify(body),
+        };
+        const r = await fetch(this.base + path, opts);
+        if (r.status === 401) { AUTH.logout(); return null; }
+        return r.ok ? r.json() : null;
+    },
+
+    async get(path) {
+        const r = await fetch(this.base + path, { headers: this.headers() });
+        if (r.status === 401) { AUTH.logout(); return null; }
+        return r.ok ? r.json() : null;
+    },
+};
+
+// ============================================================
+//  AUTH
+// ============================================================
+const AUTH = {
+    isLoggedIn() { return !!localStorage.getItem('access_token'); },
+
+    async login(email, password) {
+        const data = await API.post('/auth/login', { email, password });
+        if (!data) return false;
+        localStorage.setItem('access_token',  data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        return true;
+    },
+
+    async register(payload) {
+        const data = await API.post('/auth/register', payload);
+        return !!data;
+    },
+
+    logout() {
+        const rt = localStorage.getItem('refresh_token');
+        if (rt) API.post('/auth/logout', { refresh_token: rt });
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        showLoginScreen();
+    },
+
+    async refreshIfNeeded() {
+        const rt = localStorage.getItem('refresh_token');
+        if (!rt) return;
+        const data = await API.post('/auth/refresh', { refresh_token: rt });
+        if (data) {
+            localStorage.setItem('access_token',  data.access_token);
+            localStorage.setItem('refresh_token', data.refresh_token);
+        }
+    },
+};
+
+// ============================================================
+//  STATE
+// ============================================================
+const STATE = {
+    currentStatus:   'Off-Duty',
+    statusSince:     new Date(),
+    driveRemaining:  11 * 3600,
+    dutyRemaining:   14 * 3600,
+    breakRemaining:   8 * 3600,
+    weeklyRemaining: 70 * 3600,
+    currentSpeed:    0,
+    timeline:        [{ status: 'Off-Duty', duration: 24, label: 'Initial Rest', timestamp: '00:00' }],
+    weeklyHours:     [0, 0, 0, 0, 0, 0, 0],
+    offDutyConsecutiveSecs: 0,
+    restartEligible: false,
+    isOnline:        navigator.onLine,
+    offlineQueue:    JSON.parse(localStorage.getItem('offlineQueue') || '[]'),
+    driverName:      'Driver',
+    vehicleId:       '—',
+    hosPollingInterval: null,
+};
+
+const STATUS_COLORS_CSS = {
+    'Driving':  'var(--green)',
+    'On-Duty':  'var(--amber)',
+    'Off-Duty': 'var(--text-sec)',
+    'Sleeper':  'var(--cyan)',
+};
+
+const DVIR_ITEMS = [
+    { id: 'brakes',   label: 'Brakes',           sub: 'Service & parking' },
+    { id: 'steering', label: 'Steering',          sub: 'Mechanism & play' },
+    { id: 'tires',    label: 'Tires & Wheels',    sub: 'Pressure & condition' },
+    { id: 'lights',   label: 'Lights & Reflectors', sub: 'All required lamps' },
+    { id: 'horn',     label: 'Horn',              sub: 'Audible signal' },
+    { id: 'wipers',   label: 'Windshield Wipers', sub: 'Blades & fluid' },
+    { id: 'mirrors',  label: 'Mirrors',           sub: 'Adjustment & condition' },
+    { id: 'coupling', label: 'Coupling Devices',  sub: 'Fifth wheel, drawbar' },
+    { id: 'fuel',     label: 'Fuel System',       sub: 'Leaks & secure cap' },
+    { id: 'exhaust',  label: 'Exhaust System',    sub: 'Leaks & routing' },
+];
+
+// ============================================================
+//  LOGIN / REGISTER SCREEN
+// ============================================================
+function showLoginScreen() {
+    document.getElementById('appShell').style.display  = 'none';
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('loginError').textContent  = '';
+}
+
+function showAppShell() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('appShell').style.display   = 'flex';
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const btn      = document.getElementById('loginBtn');
+    const errEl    = document.getElementById('loginError');
+
+    btn.disabled = true;
+    btn.textContent = 'Authenticating...';
+    errEl.textContent = '';
+
+    const ok = await AUTH.login(email, password);
+    if (ok) {
+        await bootApp();
+    } else {
+        errEl.textContent = 'Invalid email or password.';
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+    }
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('regError');
+    errEl.textContent = '';
+    const payload = {
+        full_name:  document.getElementById('regName').value.trim(),
+        email:      document.getElementById('regEmail').value.trim(),
+        password:   document.getElementById('regPassword').value,
+        license_no: document.getElementById('regLicense').value.trim(),
+        vehicle_id: document.getElementById('regVehicle').value.trim(),
+        cycle_type: parseInt(document.getElementById('regCycle').value),
+    };
+    const btn = document.getElementById('registerBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating account...';
+    const ok = await AUTH.register(payload);
+    if (ok) {
+        // auto-login after register
+        await AUTH.login(payload.email, payload.password);
+        await bootApp();
+    } else {
+        errEl.textContent = 'Registration failed. Email may already be in use.';
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+    }
+}
+
+function toggleAuthTab(tab) {
+    document.getElementById('loginForm').style.display    = tab === 'login'    ? 'block' : 'none';
+    document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+    document.getElementById('authTabLogin').classList.toggle('auth-tab-active',    tab === 'login');
+    document.getElementById('authTabRegister').classList.toggle('auth-tab-active', tab === 'register');
+}
+
+// ============================================================
+//  BOOT — runs after successful auth
+// ============================================================
+async function bootApp() {
+    showAppShell();
+    lucide.createIcons();
+    initMap();
+    buildDvirChecklist();
+    buildWeeklyGrid();
+
+    // Load driver profile
+    const me = await API.get('/auth/me');
+    if (me) {
+        STATE.driverName = me.full_name;
+        STATE.vehicleId  = me.vehicle_id;
+        document.getElementById('sidebarDriverName').textContent = me.full_name;
+        document.getElementById('sidebarVehicleId').textContent  = 'Unit ' + me.vehicle_id;
+    }
+
+    // Fetch real HOS state from server
+    await fetchHOSState();
+
+    // Fetch today's events for the log grid
+    await fetchTodayEvents();
+
+    // Start polling HOS every 30s (server is source of truth)
+    STATE.hosPollingInterval = setInterval(fetchHOSState, 30000);
+
+    // Local 1-second tick for smooth countdown between polls
+    setInterval(tickClocks, 1000);
+    setInterval(updateClock, 1000);
+    updateClock();
+    updateStatusDisplay();
+    attemptSync();
+    initGPS();
+    initWebSocket();
+    // Phase 2 — load real 7-day history and check for malfunctions
+    fetchWeeklyHistory();
+    checkMalfunctions();
+}
+
+// ============================================================
+//  HOS — server-side state fetch
+// ============================================================
+async function fetchHOSState() {
+    const hos = await API.get('/hos/state');
+    if (!hos) return;
+
+    STATE.driveRemaining         = hos.drive_remaining_secs;
+    STATE.dutyRemaining          = hos.duty_window_remaining_secs;
+    STATE.breakRemaining         = hos.break_remaining_secs;
+    STATE.weeklyRemaining        = hos.weekly_remaining_secs;
+    STATE.offDutyConsecutiveSecs = hos.off_duty_consecutive_secs;
+    STATE.restartEligible        = hos.restart_eligible;
+
+    if (hos.current_status) {
+        STATE.currentStatus = hos.current_status;
+        document.getElementById('dutyStatus').value = hos.current_status;
+        updateStatusDisplay();
+    }
+
+    // Restart indicator
+    const restartEl = document.getElementById('restartStatus');
+    if (hos.restart_eligible) {
+        restartEl.textContent = '✓ 34-hr restart eligible';
+        restartEl.style.color = 'var(--green)';
+    } else {
+        const hrs = Math.floor(hos.off_duty_consecutive_secs / 3600);
+        restartEl.textContent = `${hrs}h of 34h consecutive off-duty`;
+        restartEl.style.color = 'var(--text-sec)';
+    }
+
+    updateHosDisplay();
+    checkAlerts();
+}
+
+// ============================================================
+//  FETCH TODAY'S EVENTS (for log grid + table)
+// ============================================================
+async function fetchTodayEvents() {
+    const today = new Date().toISOString().slice(0, 10);
+    const data  = await API.get(`/hos/events/${today}`);
+    if (!data || !data.length) return;
+
+    // Convert server events to local timeline format
+    STATE.timeline = data.map(ev => {
+        const start = new Date(ev.started_at);
+        const end   = ev.ended_at ? new Date(ev.ended_at) : new Date();
+        const durHrs = (end - start) / 3600000;
+        const h = start.getHours(), m = start.getMinutes();
+        return {
+            status:    ev.status,
+            duration:  parseFloat(durHrs.toFixed(2)),
+            label:     ev.origin === 'auto_motion' ? 'Auto (motion detected)' : (ev.location || 'Manual change'),
+            timestamp: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`,
+        };
+    });
+
+    renderTable(STATE.timeline);
+    drawCanvasGrid(STATE.timeline);
+}
+
+// ============================================================
+//  MAP
+// ============================================================
+let leafletMap, routeLine;
+function initMap() {
+    if (leafletMap) return;
+    leafletMap = L.map('map', { zoomControl: true, attributionControl: true }).setView([39.82, -98.57], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>'
+    }).addTo(leafletMap);
+    setTimeout(() => leafletMap.invalidateSize(), 400);
+}
+
+// ============================================================
+//  WEBSOCKET
+// ============================================================
+let _wsRetryTimer = null;
+function initWebSocket() {
+    const ws = new WebSocket(`ws://${location.host}/ws/telemetry`);
+    ws.onmessage = (e) => {
+        try { updateSpeed(JSON.parse(e.data).speed); } catch {}
+    };
+    ws.onclose = () => {
+        // Reconnect with backoff
+        clearTimeout(_wsRetryTimer);
+        _wsRetryTimer = setTimeout(initWebSocket, 4000);
+    };
+    ws.onerror = () => ws.close();
+}
+
+function updateSpeed(speed) {
+    STATE.currentSpeed = speed;
+    const el = document.getElementById('speedometer');
+    el.textContent = speed;
+    el.className = 'speed-val mono';
+    if (speed > 55) el.classList.add('danger');
+    else if (speed > 45) el.classList.add('warning');
+
+    const ds = document.getElementById('dutyStatus');
+    if (speed > 5 && STATE.currentStatus !== 'Driving') {
+        ds.value   = 'Driving';
+        ds.disabled = true;
+        applyStatusChange('Driving', 'auto_motion');
+    } else if (speed === 0) {
+        ds.disabled = false;
+    }
+}
+
+// ============================================================
+//  CLOCK TICK — smooth 1-second countdown between server polls
+// ============================================================
+function tickClocks() {
+    const st = STATE.currentStatus;
+    if (st === 'Driving') {
+        STATE.driveRemaining         = Math.max(0, STATE.driveRemaining - 1);
+        STATE.dutyRemaining          = Math.max(0, STATE.dutyRemaining  - 1);
+        STATE.breakRemaining         = Math.max(0, STATE.breakRemaining - 1);
+        STATE.weeklyRemaining        = Math.max(0, STATE.weeklyRemaining - 1);
+        STATE.offDutyConsecutiveSecs = 0;
+    } else if (st === 'On-Duty') {
+        STATE.dutyRemaining          = Math.max(0, STATE.dutyRemaining  - 1);
+        STATE.weeklyRemaining        = Math.max(0, STATE.weeklyRemaining - 1);
+        STATE.offDutyConsecutiveSecs = 0;
+    } else {
+        STATE.offDutyConsecutiveSecs++;
+    }
+    updateHosDisplay();
+    checkAlerts();
+}
+
+function fmt(secs) {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function updateHosDisplay() {
+    const { driveRemaining: d, dutyRemaining: du, breakRemaining: br, weeklyRemaining: wk } = STATE;
+
+    const dEl = document.getElementById('driveClockText');
+    dEl.textContent = fmt(d);
+    dEl.className = 'hos-time' + (d < 3600 ? ' crit' : d < 7200 ? ' warn' : '');
+    document.getElementById('driveBar').style.width      = (d  / (11*3600)*100) + '%';
+    document.getElementById('driveBar').style.background = d < 3600 ? 'var(--red)' : d < 7200 ? 'var(--amber)' : 'var(--green)';
+    document.getElementById('topbarDrive').textContent   = fmt(d);
+    document.getElementById('topbarDrive').style.color   = d < 3600 ? 'var(--red)' : d < 7200 ? 'var(--amber)' : 'var(--green)';
+
+    const duEl = document.getElementById('dutyClockText');
+    duEl.textContent = fmt(du);
+    duEl.className = 'hos-time' + (du < 3600 ? ' crit' : du < 7200 ? ' warn' : '');
+    document.getElementById('dutyBar').style.width     = (du / (14*3600)*100) + '%';
+    document.getElementById('topbarDuty').textContent  = fmt(du);
+    document.getElementById('topbarDuty').style.color  = du < 3600 ? 'var(--red)' : du < 7200 ? 'var(--amber)' : 'var(--cyan)';
+
+    document.getElementById('breakClockText').textContent = fmt(br);
+    document.getElementById('breakBar').style.width       = (br / (8*3600)*100) + '%';
+    document.getElementById('breakBar').style.background  = br < 1800 ? 'var(--red)' : 'var(--amber)';
+
+    document.getElementById('weeklyClockText').textContent = fmt(wk);
+    document.getElementById('weeklyBar').style.width       = (wk / (70*3600)*100) + '%';
+}
+
+function checkAlerts() {
+    const alertEl   = document.getElementById('hosAlert');
+    const alertText = document.getElementById('hosAlertText');
+    if (STATE.driveRemaining === 0) {
+        alertEl.style.display = 'flex';
+        alertEl.className = 'alert-badge';
+        alertText.textContent = 'DRIVE LIMIT REACHED';
+    } else if (STATE.breakRemaining < 1800 && STATE.currentStatus === 'Driving') {
+        alertEl.style.display = 'flex';
+        alertEl.className = 'alert-badge warn';
+        alertText.textContent = '30-Min Break Required';
+    } else if (STATE.driveRemaining < 7200) {
+        alertEl.style.display = 'flex';
+        alertEl.className = 'alert-badge warn';
+        alertText.textContent = 'Drive Time < 2 Hours';
+    } else {
+        alertEl.style.display = 'none';
+    }
+}
+
+function updateClock() {
+    document.getElementById('clockDisplay').textContent =
+        new Date().toLocaleTimeString('en-US', { hour12: false });
+}
+
+// ============================================================
+//  STATUS CHANGE — posts to server, refreshes HOS from server
+// ============================================================
+function manualStatusChange(newStatus) {
+    applyStatusChange(newStatus, 'manual');
+}
+
+async function applyStatusChange(newStatus, origin = 'manual') {
+    const now = new Date();
+    STATE.currentStatus = newStatus;
+    STATE.statusSince   = now;
+
+    const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    // Optimistic local update
+    STATE.timeline.push({
+        status:    newStatus,
+        duration:  0,
+        label:     origin === 'auto_motion' ? 'Auto (motion detected)' : 'Manual change',
+        timestamp: ts,
+    });
+
+    renderTable(STATE.timeline);
+    drawCanvasGrid(STATE.timeline);
+    updateStatusDisplay();
+    document.getElementById('dutyStatus').value = newStatus;
+
+    // Flash topbar
+    const tb = document.getElementById('topbar');
+    tb.classList.add('flash');
+    setTimeout(() => tb.classList.remove('flash'), 800);
+
+    if (navigator.onLine && AUTH.isLoggedIn()) {
+        // POST to server
+        const result = await API.post('/hos/event', {
+            status:    newStatus,
+            origin:    origin,
+            location:  document.getElementById('geoLoc').textContent || null,
+            timestamp: now.toISOString(),
+        });
+
+        if (result && result.hos) {
+            // Sync clocks directly from server response
+            const hos = result.hos;
+            STATE.driveRemaining  = hos.drive_remaining_secs;
+            STATE.dutyRemaining   = hos.duty_window_remaining_secs;
+            STATE.breakRemaining  = hos.break_remaining_secs;
+            STATE.weeklyRemaining = hos.weekly_remaining_secs;
+            updateHosDisplay();
+        }
+    } else {
+        // Queue for offline sync
+        STATE.offlineQueue.push({
+            status:    newStatus,
+            origin:    origin,
+            location:  null,
+            timestamp: now.toISOString(),
+        });
+        localStorage.setItem('offlineQueue', JSON.stringify(STATE.offlineQueue));
+        updateConnStatus(false);
+    }
+}
+
+function updateStatusDisplay() {
+    const st = STATE.currentStatus;
+    const colors = { 'Driving': 'var(--green)', 'On-Duty': 'var(--amber)', 'Off-Duty': 'var(--text-sec)', 'Sleeper': 'var(--cyan)' };
+    const badge = document.getElementById('statusBadgeLarge');
+    badge.textContent = st;
+    badge.style.color = colors[st] || 'var(--text-sec)';
+    const since = STATE.statusSince.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    document.getElementById('statusSince').textContent = `Since ${since}`;
+}
+
+// ============================================================
+//  WEEKLY GRID
+// ============================================================
+function buildWeeklyGrid() {
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    document.getElementById('weeklyGrid').innerHTML = STATE.weeklyHours.map((h, i) => {
+        const pct   = Math.min(100, (h / 11) * 100);
+        const color = h >= 11 ? 'var(--red)' : h >= 9 ? 'var(--amber)' : 'var(--cyan)';
+        return `<div class="day-block">
+            <div class="day-label">${days[i]}</div>
+            <div class="day-hrs" style="color:${color}">${h.toFixed(1)}</div>
+            <div class="progress-track" style="margin-top:6px;">
+                <div class="progress-fill" style="width:${pct}%;background:${color};"></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Phase 2: Load real 7-day history from server ──────────────
+async function fetchWeeklyHistory() {
+    const data = await API.get('/hos/history');
+    if (!data || !data.days) return;
+
+    STATE.weeklyHours = data.days.slice(0, 7).reverse().map(d => d.total_on_hrs);
+    buildWeeklyGrid();
+
+    // Update weekly remaining from real server data
+    const totalOn7 = data.total_on_7;
+    const limit = STATE.cycleType === 7 ? 60 : 70;
+    STATE.weeklyRemaining = Math.max(0, (limit - totalOn7) * 3600);
+    updateHosDisplay();
+
+    // Show certification status on each day
+    const grid = document.getElementById('weeklyGrid');
+    const dayBlocks = grid.querySelectorAll('.day-block');
+    data.days.slice(0, 7).reverse().forEach((d, i) => {
+        if (!dayBlocks[i]) return;
+        if (d.events_count > 0) {
+            const certBadge = document.createElement('div');
+            certBadge.style.cssText = 'font-size:9px;margin-top:3px;letter-spacing:1px;';
+            certBadge.textContent = d.cert_record ? '✓ cert' : '⚠ uncert';
+            certBadge.style.color = d.cert_record ? 'var(--green)' : 'var(--amber)';
+            // Add onclick to certify
+            if (!d.cert_record) {
+                certBadge.style.cursor = 'pointer';
+                certBadge.title = 'Tap to certify this day';
+                certBadge.onclick = () => showCertifyModal(d.date, d.day_name);
+            }
+            dayBlocks[i].appendChild(certBadge);
+        }
+    });
+}
+
+// ── Log Certification Modal ───────────────────────────────────
+function showCertifyModal(date, dayName) {
+    const sig = STATE.driverName || '';
+    const modal = document.createElement('div');
+    modal.id = 'certModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(8,9,13,0.92);z-index:2000;' +
+        'display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-card);border:1px solid var(--border-lit);border-radius:12px;
+            padding:32px;width:420px;max-width:95vw;">
+            <div style="font-size:16px;font-weight:700;letter-spacing:2px;color:var(--amber);
+                text-transform:uppercase;margin-bottom:8px;">Certify Log</div>
+            <p style="font-size:12px;color:var(--text-sec);line-height:1.6;margin-bottom:20px;">
+                I certify that my duty status entries for <strong style="color:var(--text-pri)">${_esc(dayName)}, ${_esc(date)}</strong>
+                are true and correct to the best of my knowledge (49 CFR §395.8).
+            </p>
+            <div style="margin-bottom:14px;">
+                <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;
+                    color:var(--text-sec);margin-bottom:6px;">Electronic Signature (full name)</div>
+                <input id="certSig" type="text" value="${_esc(sig)}" class="form-input"
+                    placeholder="Type your full name to sign">
+            </div>
+            <div id="certErr" style="color:var(--red);font-size:12px;margin-bottom:10px;min-height:16px;"></div>
+            <div style="display:flex;gap:8px;">
+                <button onclick="submitCertification('${date}')"
+                    style="flex:1;background:var(--green);color:#000;border:none;border-radius:6px;
+                    padding:10px;font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;
+                    letter-spacing:2px;text-transform:uppercase;cursor:pointer;">
+                    Certify Log
+                </button>
+                <button onclick="document.getElementById('certModal').remove()"
+                    style="padding:10px 18px;background:transparent;border:1px solid var(--border);
+                    color:var(--text-sec);border-radius:6px;font-family:Rajdhani,sans-serif;
+                    font-size:12px;font-weight:700;cursor:pointer;">
+                    Cancel
+                </button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('certSig')?.focus(), 100);
+}
+
+async function submitCertification(date) {
+    const sig   = document.getElementById('certSig')?.value?.trim();
+    const errEl = document.getElementById('certErr');
+    if (!sig || sig.length < 2) {
+        errEl.textContent = 'Please enter your full name as signature.';
+        return;
+    }
+    const result = await API.post(`/hos/certify/${date}`, {
+        signature: sig,
+        amendment: false,
+    });
+    if (result) {
+        document.getElementById('certModal')?.remove();
+        // Refresh weekly grid
+        await fetchWeeklyHistory();
+        // Show toast
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:var(--bg-card);' +
+            'border:1px solid var(--green);border-radius:8px;padding:12px 16px;font-family:Rajdhani,sans-serif;' +
+            'font-size:13px;color:var(--text-pri);display:flex;align-items:center;gap:10px;';
+        toast.innerHTML = `<span style="color:var(--green)">✓</span> Log certified for ${date}` +
+            `<button onclick="this.parentElement.remove()" style="background:transparent;border:none;` +
+            `color:var(--text-sec);cursor:pointer;font-size:16px;margin-left:8px;">×</button>`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    } else {
+        if (errEl) errEl.textContent = 'Certification failed. Please try again.';
+    }
+}
+
+// ── Phase 2: Malfunction alert ────────────────────────────────
+async function checkMalfunctions() {
+    const data = await API.get('/hos/malfunctions?active_only=true');
+    if (!data || !data.length) return;
+    const alertEl = document.getElementById('hosAlert');
+    const alertText = document.getElementById('hosAlertText');
+    alertEl.style.display = 'flex';
+    alertEl.className = 'alert-badge';
+    alertText.textContent = `ELD Malfunction: ${data[0].code} — ${data[0].description}`;
+}
+
+// ============================================================
+//  TRIP SIMULATION
+// ============================================================
+async function runSimulation() {
+    const pickup  = document.getElementById('pickup').value.trim();
+    const dropoff = document.getElementById('dropoff').value.trim();
+    const cycle   = document.getElementById('cycleUsed').value || '10';
+    if (!pickup || !dropoff) { alert('Please enter pickup and dropoff locations.'); return; }
+
+    const btn = document.getElementById('simBtn');
+    btn.innerHTML = '<span class="spinner"></span> Calculating...';
+    btn.disabled = true;
+
+    try {
+        const data = await API.post('/calculate', {
+            current_loc: pickup, pickup_loc: pickup,
+            dropoff_loc: dropoff, cycle_used: cycle,
+        }, true /* form */);
+
+        if (!data) throw new Error('No data');
+        STATE.timeline = data.timeline;
+        document.getElementById('geoLoc').textContent = `${pickup} → ${dropoff}`;
+
+        if (data.coords && data.coords.length >= 2) {
+            if (routeLine) leafletMap.removeLayer(routeLine);
+            const ll = data.coords.filter(c=>c).map(c=>[c[0],c[1]]);
+            routeLine = L.polyline(ll, { color:'#f59e0b', weight:3 }).addTo(leafletMap);
+            leafletMap.fitBounds(routeLine.getBounds(), { padding:[30,30] });
+            data.coords.forEach((c,i) => {
+                if (c) L.circleMarker([c[0],c[1]], { radius:7, color:'#f59e0b', fillColor:'#f59e0b', fillOpacity:1 })
+                    .addTo(leafletMap).bindPopup(['Start','Pickup','Dropoff'][i]||'');
+            });
+        }
+
+        const miles = data.total_miles ? `${Math.round(data.total_miles)} miles` : '';
+        const hours = data.timeline.reduce((s,e) => s + e.duration, 0).toFixed(1);
+        document.getElementById('simResult').style.display = 'block';
+        document.getElementById('simResult').innerHTML =
+            `<span style="color:var(--amber)">✓</span> ${miles} · Est. ${hours} hrs · ${data.timeline.length} events`;
+
+        renderTable(STATE.timeline);
+        drawCanvasGrid(STATE.timeline);
+        switchTab('logs');
+    } catch(err) {
+        console.error(err);
+        document.getElementById('simResult').style.display = 'block';
+        document.getElementById('simResult').innerHTML = '<span style="color:var(--amber)">⚠</span> Could not calculate route.';
+    }
+    btn.innerHTML = 'Simulate HOS Route';
+    btn.disabled = false;
+}
+
+// ============================================================
+//  CANVAS LOG GRID  (fixed — always renders full 24h)
+// ============================================================
+function drawCanvasGrid(timeline) {
+    const canvas = document.getElementById('eldCanvas');
+    if (!canvas) return;
+
+    // Make canvas match its CSS display width (fixes cutoff)
+    const container = canvas.parentElement;
+    canvas.width = container ? container.clientWidth || 900 : 900;
+
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    const ML = 80, MR = 16, MT = 28, MB = 36;
+    const cW = W - ML - MR, cH = H - MT - MB;
+
+    const ROWS = ['Off-Duty','Sleeper','Driving','On-Duty'];
+    const ROW_H = cH / ROWS.length;
+    const ROW_Y = {};
+    ROWS.forEach((r, i) => { ROW_Y[r] = MT + i * ROW_H + ROW_H / 2; });
+
+    // Row backgrounds
+    ROWS.forEach((r, i) => {
+        ctx.fillStyle = i % 2 === 0 ? '#f8fafc' : '#f1f5f9';
+        ctx.fillRect(ML, MT + i * ROW_H, cW, ROW_H);
+    });
+
+    // Vertical hour lines
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 0.5;
+    for (let h = 0; h <= 24; h++) {
+        const x = ML + (h / 24) * cW;
+        ctx.beginPath(); ctx.moveTo(x, MT); ctx.lineTo(x, MT + cH); ctx.stroke();
+        if (h % 2 === 0) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px "Share Tech Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(h === 0 ? 'M' : h === 12 ? 'N' : String(h), x, MT + cH + 14);
+        }
+    }
+    // Bold midnight/noon
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1;
+    [0, 12, 24].forEach(h => {
+        const x = ML + (h / 24) * cW;
+        ctx.beginPath(); ctx.moveTo(x, MT); ctx.lineTo(x, MT + cH); ctx.stroke();
+    });
+
+    // Row labels + separators
+    ctx.font = 'bold 10px Rajdhani, sans-serif'; ctx.textAlign = 'right';
+    ROWS.forEach((r, i) => {
+        ctx.fillStyle = '#334155';
+        ctx.fillText(r, ML - 6, MT + i * ROW_H + ROW_H / 2 + 4);
+        ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ML, MT + i * ROW_H); ctx.lineTo(ML + cW, MT + i * ROW_H); ctx.stroke();
+    });
+
+    if (!timeline || !timeline.length) return;
+
+    // Always map timeline proportionally to 24h
+    const totalDur = timeline.reduce((s, e) => s + (e.duration || 0), 0);
+    if (totalDur === 0) return;
+    const scale = Math.min(1, 24 / totalDur);
+
+    const COLORS = { 'Off-Duty':'#64748b', 'Sleeper':'#06b6d4', 'Driving':'#22c55e', 'On-Duty':'#f59e0b' };
+
+    // Colored fill blocks
+    let bx = ML;
+    timeline.forEach(ev => {
+        const w    = (ev.duration * scale / 24) * cW;
+        const ri   = ROWS.indexOf(ev.status);
+        const rowT = MT + (ri < 0 ? 0 : ri) * ROW_H;
+        ctx.fillStyle = (COLORS[ev.status] || '#94a3b8') + '30';
+        ctx.fillRect(bx, rowT, w, ROW_H);
+        bx += w;
+    });
+
+    // ELD line
+    ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let cx = ML, cy = ROW_Y[timeline[0].status] || ROW_Y['Off-Duty'];
+    ctx.moveTo(cx, cy);
+    timeline.forEach(ev => {
+        const ty = ROW_Y[ev.status] || ROW_Y['Off-Duty'];
+        const w  = (ev.duration * scale / 24) * cW;
+        if (ty !== cy) ctx.lineTo(cx, ty);
+        cx += w;
+        ctx.lineTo(cx, ty);
+        cy = ty;
+    });
+    ctx.stroke();
+
+    // Status-change dots
+    let dx = ML;
+    timeline.forEach(ev => {
+        ctx.fillStyle = COLORS[ev.status] || '#94a3b8';
+        ctx.beginPath();
+        ctx.arc(dx, ROW_Y[ev.status] || ROW_Y['Off-Duty'], 4, 0, Math.PI * 2);
+        ctx.fill();
+        dx += (ev.duration * scale / 24) * cW;
+    });
+
+    ctx.font = 'bold 10px Rajdhani, sans-serif';
+    ctx.fillStyle = '#1e293b'; ctx.textAlign = 'left';
+    ctx.fillText('RECORD OF DUTY STATUS — 24-HOUR LOG', ML, 18);
+}
+
+// ============================================================
+//  EVENT TABLE
+// ============================================================
+function _esc(s) {
+    // Escape HTML to prevent XSS when rendering user-supplied data
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderTable(timeline) {
+    const body = document.getElementById('eventBody');
+    if (!body) return;
+    body.innerHTML = timeline.map((e, i) => {
+        const color = STATUS_COLORS_CSS[e.status] || 'var(--text-pri)';
+        const cert  = i === 0
+            ? '<span style="color:var(--green);font-size:11px;">✓ Certified</span>'
+            : '<span style="color:var(--text-dim);font-size:11px;">Pending</span>';
+        return `<tr>
+            <td style="color:var(--text-sec);font-family:'Share Tech Mono',monospace;font-size:12px;">${_esc(e.timestamp || '--:--')}</td>
+            <td style="font-weight:700;color:${color};">${_esc(e.status)}</td>
+            <td style="font-family:'Share Tech Mono',monospace;">${_esc((e.duration||0).toFixed(1))} hrs</td>
+            <td style="color:var(--text-sec);font-style:italic;">${_esc(e.label || '—')}</td>
+            <td>${cert}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ============================================================
+//  DVIR
+// ============================================================
+function buildDvirChecklist() {
+    document.getElementById('dvirChecklist').innerHTML = DVIR_ITEMS.map(item => `
+        <label class="dvir-check" id="dvir-${item.id}">
+            <input type="checkbox" onchange="toggleDvirItem('${item.id}',this.checked)">
+            <div><div class="dvir-label">${item.label}</div><div class="dvir-sub">${item.sub}</div></div>
+        </label>`).join('');
+}
+
+function toggleDvirItem(id, checked) {
+    document.getElementById(`dvir-${id}`).classList.toggle('checked', checked);
+    const count = DVIR_ITEMS.filter(it => document.querySelector(`#dvir-${it.id} input`).checked).length;
+    const st = document.getElementById('dvirStatus');
+    st.textContent = count === DVIR_ITEMS.length ? '✓ All items inspected' : `${count}/${DVIR_ITEMS.length} items`;
+    st.style.color = count === DVIR_ITEMS.length ? 'var(--green)' : 'var(--text-sec)';
+}
+
+async function submitDvir() {
+    const sig = document.getElementById('driverSig').value.trim();
+    if (!sig) { alert('Electronic signature required.'); return; }
+
+    const items = DVIR_ITEMS.map(it => ({
+        item_id: it.id,
+        passed:  document.querySelector(`#dvir-${it.id} input`).checked,
+    }));
+    const vehicleId = STATE.vehicleId || 'UNKNOWN';
+
+    const result = await API.post('/dvir', {
+        vehicle_id: vehicleId,
+        items,
+        remarks:   document.getElementById('dvirRemarks').value || null,
+        trip_type: 'post_trip',
+    });
+
+    if (result) {
+        document.getElementById('dvirStatus').textContent = `✓ Submitted at ${new Date().toLocaleTimeString()}`;
+        document.getElementById('dvirStatus').style.color = 'var(--green)';
+        alert(result.message || 'DVIR submitted successfully.');
+    } else {
+        alert('DVIR submission failed. Check your connection.');
+    }
+}
+
+// ============================================================
+//  DOT MODE — PIN verified server-side
+// ============================================================
+function enableDotMode() {
+    document.getElementById('dotOverlay').classList.add('active');
+    document.body.classList.add('dot-active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-logs').classList.add('active');
+    drawCanvasGrid(STATE.timeline);
+    document.getElementById('exportBtn').style.display = 'flex';
+    document.getElementById('dutyStatus').disabled = true;
+    document.getElementById('dotPinError').textContent = '';
+}
+
+async function exitDotMode() {
+    const pin   = document.getElementById('dotPin').value;
+    const errEl = document.getElementById('dotPinError');
+    const btn   = document.getElementById('dotUnlockBtn');
+    if (!pin || pin.length < 4) { errEl.textContent = 'Enter your 4-digit PIN.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    errEl.textContent = '';
+
+    // Server-side PIN verification — never checked in JS
+    const result = await API.post('/dot/verify-pin', { pin });
+
+    if (result && result.unlocked) {
+        document.getElementById('dotOverlay').classList.remove('active');
+        document.body.classList.remove('dot-active');
+        document.getElementById('dutyStatus').disabled = false;
+        document.getElementById('dotPin').value = '';
+        switchTab('dashboard');
+    } else {
+        errEl.textContent = 'ACCESS DENIED — Incorrect PIN';
+        document.getElementById('dotPin').value = '';
+        document.getElementById('dotPin').style.borderColor = 'var(--red)';
+        setTimeout(() => document.getElementById('dotPin').style.borderColor = '', 1000);
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+}
+
+// ============================================================
+//  TABS
+// ============================================================
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    // Sidebar nav
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    const nb = document.getElementById(`nav-${tabId}`);
+    if (nb) nb.classList.add('active');
+    // Mobile bottom nav highlight
+    ['dashboard','logs','dvir'].forEach(t => {
+        const mb = document.getElementById(`mob-${t}`);
+        if (mb) mb.style.color = t === tabId ? 'var(--amber)' : 'var(--text-sec)';
+    });
+    if (tabId === 'logs') setTimeout(() => drawCanvasGrid(STATE.timeline), 60);
+}
+
+// ============================================================
+//  OFFLINE SYNC
+// ============================================================
+function updateConnStatus(online) {
+    STATE.isOnline = online;
+    const el = document.getElementById('connectionStatus');
+    el.className = online ? 'status-pill online' : 'status-pill offline';
+    el.innerHTML = `<span class="pulse-dot"></span> ${online ? 'Online' : 'Offline'}`;
+}
+
+window.addEventListener('online',  () => { updateConnStatus(true);  attemptSync(); });
+window.addEventListener('offline', () => updateConnStatus(false));
+
+async function attemptSync() {
+    if (!STATE.offlineQueue.length || !navigator.onLine || !AUTH.isLoggedIn()) return;
+    const result = await API.post('/hos/sync', {
+        events:    STATE.offlineQueue,
+        device_id: navigator.userAgent.slice(0, 40),
+    });
+    if (result) {
+        console.log(`Synced ${result.inserted} events, skipped ${result.skipped}`);
+        STATE.offlineQueue = [];
+        localStorage.removeItem('offlineQueue');
+    }
+}
+
+// ============================================================
+//  GPS
+// ============================================================
+function initGPS() {
+    const geoEl = document.getElementById('geoLoc');
+    if (!navigator.geolocation) { geoEl.textContent = 'GPS not supported'; return; }
+    navigator.geolocation.getCurrentPosition(_updateGeo, () => { geoEl.textContent = 'GPS unavailable'; });
+    navigator.geolocation.watchPosition(_updateGeo, () => {}, { enableHighAccuracy: false, timeout: 10000 });
+}
+
+function _updateGeo(pos) {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    if (leafletMap) leafletMap.setView([lat, lng], 10);
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+        .then(r => r.json())
+        .then(d => {
+            const city  = d.address?.city || d.address?.town || d.address?.village || d.address?.county || '';
+            const state = d.address?.state_code || d.address?.state || '';
+            document.getElementById('geoLoc').textContent = city ? `${city}, ${state}` : `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+        })
+        .catch(() => { document.getElementById('geoLoc').textContent = `${lat.toFixed(3)}, ${lng.toFixed(3)}`; });
+}
+
+// ============================================================
+//  SERVICE WORKER + PWA INSTALL
+// ============================================================
+let _deferredInstallPrompt = null;
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+        try {
+            const reg = await navigator.serviceWorker.register('/static/sw.js', { scope: '/' });
+            console.log('ProELD SW registered, scope:', reg.scope);
+
+            // Listen for messages from SW (background sync trigger)
+            navigator.serviceWorker.addEventListener('message', e => {
+                if (e.data?.type === 'SYNC_REQUESTED') attemptSync();
+            });
+
+            // Poll for updates every 60s
+            setInterval(() => reg.update(), 60000);
+
+            // Show update toast when new SW is ready
+            reg.addEventListener('updatefound', () => {
+                const sw = reg.installing;
+                sw.addEventListener('statechange', () => {
+                    if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                        showUpdateToast();
+                    }
+                });
+            });
+        } catch (err) {
+            console.warn('SW registration failed:', err);
+        }
+    });
+}
+
+// Chrome/Android: capture the install prompt before it fires
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    if (!localStorage.getItem('pwa-install-dismissed')) {
+        showInstallBanner();
+    }
+});
+
+// Fired after successful install — hide banner
+window.addEventListener('appinstalled', () => {
+    hideInstallBanner();
+    _deferredInstallPrompt = null;
+    console.log('ProELD PWA installed');
+});
+
+function showInstallBanner() {
+    const b = document.getElementById('installBanner');
+    if (b) { b.style.display = 'flex'; }
+}
+
+function hideInstallBanner() {
+    const b = document.getElementById('installBanner');
+    if (b) { b.style.display = 'none'; }
+}
+
+function doInstall() {
+    if (!_deferredInstallPrompt) {
+        // Fallback: show manual instructions
+        showManualInstallGuide();
+        return;
+    }
+    _deferredInstallPrompt.prompt();
+    _deferredInstallPrompt.userChoice.then(result => {
+        console.log('Install choice:', result.outcome);
+        if (result.outcome === 'accepted') hideInstallBanner();
+        _deferredInstallPrompt = null;
+    });
+}
+
+function dismissInstall() {
+    hideInstallBanner();
+    localStorage.setItem('pwa-install-dismissed', '1');
+}
+
+function showManualInstallGuide() {
+    // Detect platform and show the right instructions
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const msg = isIOS
+        ? 'On iOS: tap the Share button ⬆ then "Add to Home Screen"'
+        : 'In Chrome: tap the menu (⋮) then "Add to Home Screen" or "Install app"';
+    alert('Install ProELD\n' + msg);
+}
+
+function showUpdateToast() {
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;' +
+        'background:var(--bg-card);border:1px solid var(--amber);border-radius:8px;' +
+        'padding:12px 16px;font-family:Rajdhani,sans-serif;font-size:13px;color:var(--text-pri);' +
+        'display:flex;align-items:center;gap:12px;';
+    toast.innerHTML =
+        '<span style="color:var(--amber);">&#8593;</span>' +
+        '<span>New version available</span>' +
+        '<button onclick="window.location.reload()" style="background:var(--amber);border:none;' +
+        'color:#000;padding:4px 10px;border-radius:4px;font-family:Rajdhani,sans-serif;' +
+        'font-size:12px;font-weight:700;cursor:pointer;">Update</button>' +
+        '<button onclick="this.parentElement.remove()" style="background:transparent;border:none;' +
+        'color:var(--text-sec);cursor:pointer;font-size:18px;line-height:1;">&times;</button>';
+    document.body.appendChild(toast);
+}
+
+// Also expose a manual install trigger in the sidebar (for when banner was dismissed)
+function triggerInstallPrompt() {
+    if (_deferredInstallPrompt) {
+        doInstall();
+    } else if (window.matchMedia('(display-mode: standalone)').matches) {
+        alert('ProELD is already installed!');
+    } else {
+        showManualInstallGuide();
+    }
+}
+
+// Handle ?tab= deep links from PWA shortcuts
+(function handleDeepLink() {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && ['dashboard','logs','dvir'].includes(tab)) {
+        const _origBoot = window.bootApp;
+        window.bootApp = async function() {
+            await _origBoot();
+            switchTab(tab);
+        };
+    }
+})();
+
+// ============================================================
+//  BOOT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    if (AUTH.isLoggedIn()) {
+        bootApp().catch(showAppError);
+    } else {
+        showLoginScreen();
+    }
+});
+</script>
+</body>
+</html>

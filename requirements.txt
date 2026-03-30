@@ -1,0 +1,38 @@
+# ProELD Phase 2 Requirements
+# Install: pip install -r requirements.txt --break-system-packages
+
+# ── Web framework ──────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+
+# ── Database ───────────────────────────────────────────────────
+motor==3.4.0
+pymongo==4.7.2
+# DO NOT add standalone bson — pymongo ships its own
+
+# ── Auth ───────────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# ── Validation ────────────────────────────────────────────────
+pydantic[email]==2.9.2
+pydantic-settings==2.6.1
+
+# ── Rate limiting (Phase 2) ───────────────────────────────────
+slowapi==0.1.9
+
+# ── Async HTTP (Phase 2: Google Maps, webhooks) ───────────────
+
+# ── Geocoding fallback (no API key) ──────────────────────────
+geopy==2.4.1
+
+# ── Structured logging (Phase 2) ─────────────────────────────
+structlog==24.4.0
+
+# ── Templates ────────────────────────────────────────────────
+jinja2==3.1.4
+
+# ── Date/time ────────────────────────────────────────────────
+python-dateutil==2.9.0
